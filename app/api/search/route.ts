@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
             generationConfig: {
                 responseMimeType: "application/json",
                 temperature: 0.2,
-                maxOutputTokens: 1024,
+                maxOutputTokens: 2000,
             },
         });
 
@@ -106,7 +106,16 @@ export async function POST(request: NextRequest) {
             { text: `User query: "${query}"` },
         ]);
 
-        rawText = result.response.text();
+        const response = result.response;
+        console.log("=== RESPONSE METADATA ===");
+        console.log("Candidates:", response.candidates?.length);
+        console.log("Finish reason:", response.candidates?.[0]?.finishReason);
+        console.log("Safety ratings:", response.candidates?.[0]?.safetyRatings);
+        
+        rawText = response.text();
+        console.log("=== RAW GEMINI RESPONSE ===");
+        console.log(rawText);
+        console.log("=== END RESPONSE ===");
     } catch (err: any) {
         console.error("Gemini API error details:", {
             message: err?.message,
@@ -123,6 +132,7 @@ export async function POST(request: NextRequest) {
     // --- Parse and Zod-validate the AI response ---
     let aiParsed;
     try {
+        console.log("Raw AI response:", rawText);
         const json = JSON.parse(rawText);
         const validated = AIResponseSchema.safeParse(json);
         if (!validated.success) {
@@ -133,8 +143,9 @@ export async function POST(request: NextRequest) {
             );
         }
         aiParsed = validated.data;
-    } catch {
-        console.error("JSON parse error. Raw AI output:", rawText);
+    } catch (err) {
+        console.log("JSON parse error. Raw AI output:", rawText);
+        console.log("Parse error details:", err);
         return NextResponse.json(
             { error: "AI returned malformed data." },
             { status: 500 }
